@@ -3,7 +3,10 @@ package com.android.rxvisions;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
+import android.widget.EditText;
 
 import java.util.concurrent.TimeUnit;
 
@@ -11,9 +14,11 @@ import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.ObservableEmitter;
 import io.reactivex.rxjava3.core.ObservableOnSubscribe;
+import io.reactivex.rxjava3.core.ObservableSource;
 import io.reactivex.rxjava3.core.Observer;
 import io.reactivex.rxjava3.core.Scheduler;
 import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.functions.Function;
 import io.reactivex.rxjava3.observables.ConnectableObservable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
@@ -30,6 +35,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        EditText editText = findViewById(R.id.edit_text);
+
 //   تنقسم الـ RXJava الي 3 مفاهيم رئيسيه
 //  الاول هو Observable
 //   التاني هو الـ Operators
@@ -268,21 +276,68 @@ public class MainActivity extends AppCompatActivity {
 
         observable.subscribe(observer);
 */
-        Observable.just(1, 2, 3, 4, 5)
+ /*
+       Observable.just(1, 2, 3, 4, 5)
                 .subscribeOn(Schedulers.computation())
                 .doOnNext(c -> Log.d(TAG, "UpStream: " + c + " Current Thread = " + Thread.currentThread().getName())) //  كل ما الـ Observable  يطلع حاجة اعمل ايه .. او ده الـ Upstream
                 .observeOn(Schedulers.io())
                 .observeOn(Schedulers.newThread())
                 .subscribe(o-> Log.d(TAG, "DownStream: " + o + " Current Thread = " + Thread.currentThread().getName()));
+*/
 
+        Observable.create(new ObservableOnSubscribe<Object>() {
+            @Override
+            public void subscribe(@NonNull ObservableEmitter<Object> emitter) throws Throwable {
+                editText.addTextChangedListener(new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+                    }
+
+                    @Override
+                    public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                        if (charSequence.length() != 0)
+                            emitter.onNext(charSequence);
+                    }
+
+                    @Override
+                    public void afterTextChanged(Editable editable) {
+
+                    }
+                });
+            }
+        })
+                .doOnNext(U -> Log.d(TAG, "os UpStream: :" + U))
+
+//                .map(new Function<Object, Object>() { // لو عايز تعمل اي عملية ع الداتا قبل الـ observer  يبقي بأستخدام الماب
+//                    @Override
+//                    public Object apply(Object o) throws Throwable {
+//                        return Integer.parseInt(o.toString()) * 2;
+//                    }
+//                })
+
+//                .debounce(2,TimeUnit.SECONDS) // لو عايز تعطل ارسال الداتا الي الـ  observer مده معينه
+//                .distinctUntilChanged() //  لو الداتا بعد م اتغيرت رجعت زي م هيه يبقي مافيش داعي اننا نعمل ارسال للـ observer
+
+//                .filter(o -> !o.toString().equals("Osama")) // لو عايز تفلتر الداتا اللي رايحه لل Observer  و تحجب حاجة معينه
+
+                .flatMap(new Function<Object, ObservableSource<?>>() {
+                    @Override
+                    public ObservableSource<?> apply(Object o) throws Throwable {
+                        return sendData(o.toString());
+                    }
+                })
+                .subscribe(D -> {
+                    Log.d(TAG, "os DownStream: " + D);
+//                    sendData(D.toString());
+                });
 
     }
 
-    public void sleep(int time) {
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+
+    public Observable sendData(String data) {
+        Observable observable = Observable.just("Calling Api 1 to send " + data);
+        observable.subscribe(o -> Log.d(TAG, "os sendData: " + o));
+        return observable;
     }
 }
